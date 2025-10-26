@@ -1,0 +1,32 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Enable output
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Output directory
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    // Module settings for Node.js compatibility
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "target": "ES2020",
+
+    // Don't allow importing .ts extensions in output
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "src/example.ts"
+  ]
+}
