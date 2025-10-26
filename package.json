@@ -1,6 +1,6 @@
 {
   "name": "grammy-fsm",
-  "version": "0.3.0",
+  "version": "0.2.0",
   "description": "Finite State Machine (FSM) plugin for Grammy Telegram bot framework with type-safe state management",
   "keywords": [
     "grammy",
