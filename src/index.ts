@@ -9,7 +9,7 @@
  * @example
  * ```typescript
  * import { Bot } from "grammy";
- * import { createFSM, state, type FSMFlavor } from "./modules/fsm";
+ * import { createFSM, state, type FSMFlavor } from "grammy-fsm";
  *
  * // Define states using enum
  * enum MyStates {
@@ -24,12 +24,12 @@
  *
  * // Use states (synchronous API - no await!)
  * bot.command("start", async (ctx) => {
- *   ctx.fsm.setState(MyStates.Registration);
+ *   ctx.state = MyStates.Registration;
  *   await ctx.reply("What's your name?");
  * });
  *
  * bot.filter(state(MyStates.Registration)).on("message:text", async (ctx) => {
- *   ctx.fsm.set("name", ctx.message.text);
+ *   ctx.data.name = ctx.message.text;
  *   await ctx.reply("Registration complete!");
  *   ctx.fsm.clear();
  * });

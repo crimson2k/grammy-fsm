@@ -49,25 +49,25 @@ bot.use(createFSM({ storage: "memory" }));
 // 5. Start registration flow
 bot.command("start", async (ctx) => {
   await ctx.reply("What's your name?");
-  ctx.fsm.setState(RegistrationStates.AwaitingName);
+  ctx.state = RegistrationStates.AwaitingName;
 });
 
 // 6. Handle name input
 bot.filter(state(RegistrationStates.AwaitingName)).on("message:text", async (ctx) => {
   const name = ctx.message.text;
 
-  ctx.fsm.set("name", name);
+  ctx.data.name = name;
   await ctx.reply("How old are you?");
-  ctx.fsm.setState(RegistrationStates.AwaitingAge);
+  ctx.state = RegistrationStates.AwaitingAge;
 });
 
 // 7. Handle age input
 bot.filter(state(RegistrationStates.AwaitingAge)).on("message:text", async (ctx) => {
   const age = parseInt(ctx.message.text);
 
-  ctx.fsm.set("age", age);
+  ctx.data.age = age;
 
-  const data = ctx.fsm.getData();
+  const data = ctx.data.getAll();
   await ctx.reply(`Registration complete!\nName: ${data.name}\nAge: ${data.age}`);
 
   ctx.fsm.clear();
@@ -146,7 +146,9 @@ enum OrderStates {
 }
 
 // Usage
-ctx.fsm.setState(OrderStates.ChoosingProduct);
+ctx.state.set(OrderStates.ChoosingProduct);
+// or shorthand:
+ctx.state = OrderStates.ChoosingProduct;
 ```
 
 ### Using Constants
@@ -159,27 +161,37 @@ const STATES = {
 } as const;
 
 // Usage
-ctx.fsm.setState(STATES.MENU);
+ctx.state.set(STATES.MENU);
+// or shorthand:
+ctx.state = STATES.MENU;
 ```
 
 ## Context API
 
-Once you add the FSM plugin, `ctx.fsm` provides these methods:
+Once you add the FSM plugin, your context provides these methods:
 
 ### State Management
 
 ```typescript
 // Set current state
-ctx.fsm.setState("state_name");
-ctx.fsm.setState(MyStates.Registration);
+ctx.state.set("state_name");
+ctx.state.set(MyStates.Registration);
+// Or use the shorthand:
+ctx.state = "state_name";
 
 // Get current state
-const state = ctx.fsm.getState(); // Returns string | null
+const state = ctx.state.get(); // Returns string | null
 
 // Check if user has any state
-const hasState = ctx.fsm.hasState(); // Returns boolean
+const hasState = ctx.state.has(); // Returns boolean
 
-// Clear state and data
+// Clear state only
+ctx.state.clear();
+// Or use shorthand:
+ctx.state = undefined;
+ctx.state = null;
+
+// Clear everything (state and data)
 ctx.fsm.clear();
 ```
 
@@ -187,23 +199,31 @@ ctx.fsm.clear();
 
 ```typescript
 // Set all data (overwrites)
-ctx.fsm.setData({ name: "John", age: 25 });
+ctx.data.setAll({ name: "John", age: 25 });
 
 // Get all data
-const data = ctx.fsm.getData(); // Returns { name: "John", age: 25 }
+const data = ctx.data.getAll(); // Returns { name: "John", age: 25 }
 
 // Update data (merges with existing)
-ctx.fsm.updateData({ city: "NYC" });
+ctx.data.update({ city: "NYC" });
 // Now: { name: "John", age: 25, city: "NYC" }
 
-// Set individual field
-ctx.fsm.set("email", "john@example.com");
+// Set individual field (two ways)
+ctx.data.set("email", "john@example.com");
+ctx.data.email = "john@example.com"; // direct access
 
-// Get individual field
-const name = ctx.fsm.get<string>("name"); // "John"
+// Get individual field (two ways)
+const name = ctx.data.get<string>("name"); // "John"
+const name2 = ctx.data.name; // direct access
 
 // Delete field
-ctx.fsm.delete("age");
+ctx.data.delete("age");
+
+// Clear data only
+ctx.data.clear();
+// Or use shorthand:
+ctx.data = undefined;
+ctx.data = null;
 ```
 
 ## Middleware Filters
@@ -283,12 +303,16 @@ interface UserRegistrationData {
 }
 
 // Get typed data
-const data = ctx.fsm.getData<UserRegistrationData>();
-console.log(data?.name); // TypeScript knows this is a string
+const data = ctx.data.getAll<UserRegistrationData>();
+console.log(data.name); // TypeScript knows this is a string
 
 // Get typed field
-const age = ctx.fsm.get<number>("age");
+const age = ctx.data.get<number>("age");
 console.log(age); // TypeScript knows this is number | undefined
+
+// Direct access is also type-safe if you type-cast
+const data2 = ctx.data as unknown as UserRegistrationData;
+console.log(data2.name); // TypeScript knows this is a string
 ```
 
 ## API Reference
@@ -302,21 +326,29 @@ Creates FSM plugin for Grammy.
 - `ttl?`: Time-to-live in seconds for auto-cleanup (Redis only)
 - `onStateChange?`: Callback function called on state changes
 
-### Context Methods (`ctx.fsm`)
+### Context Methods
 
-**State Management:**
-- `setState(state)`: Set user's state
-- `getState()`: Get current state
-- `hasState()`: Check if user has a state
-- `clear()`: Clear state and all data
+**State Namespace (`ctx.state`):**
+- `state.set(state)`: Set user's state
+- `state.get()`: Get current state
+- `state.has()`: Check if user has a state
+- `state.clear()`: Clear state only
+- `state = "value"`: Shorthand for `state.set(value)`
+- `state = undefined`: Shorthand for `state.clear()`
 
-**Data Management:**
-- `setData(data)`: Set all data (overwrites)
-- `getData<T>()`: Get all data
-- `updateData(data)`: Update data (merges)
-- `get<T>(key)`: Get single field
-- `set(key, value)`: Set single field
-- `delete(key)`: Delete single field
+**Data Namespace (`ctx.data`):**
+- `data.setAll(data)`: Set all data (overwrites)
+- `data.getAll<T>()`: Get all data
+- `data.update(data)`: Update data (merges)
+- `data.get<T>(key)`: Get single field
+- `data.set(key, value)`: Set single field
+- `data.delete(key)`: Delete single field
+- `data.clear()`: Clear data only
+- `data = undefined`: Shorthand for `data.clear()`
+- `data.fieldName`: Direct field access (get/set)
+
+**General (`ctx.fsm`):**
+- `clear()`: Clear both state and all data
 
 ### Middleware Filters
 

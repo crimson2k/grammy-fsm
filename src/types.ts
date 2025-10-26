@@ -44,77 +44,139 @@ export interface FSMSessionData {
 }
 
 /**
+ * State management namespace
+ * Provides methods to work with FSM state
+ * Automatically converts to primitive when used in string context
+ */
+export interface StateNamespace {
+  /**
+   * Set current state
+   * @example ctx.fsm.state.set("awaiting_name")
+   */
+  set(state: string): void;
+
+  /**
+   * Get current state
+   * @example const state = ctx.fsm.state.get()
+   */
+  get(): string | null;
+
+  /**
+   * Check if state is set
+   * @example if (ctx.fsm.state.has()) { ... }
+   */
+  has(): boolean;
+
+  /**
+   * Clear state (sets to null)
+   * @example ctx.fsm.state.clear()
+   */
+  clear(): void;
+
+  /**
+   * Convert to string (returns current state)
+   * @example String(ctx.fsm.state) -> "awaiting_name"
+   */
+  toString(): string;
+
+  /**
+   * Return primitive value (returns current state)
+   * @example ctx.fsm.state.valueOf() -> "awaiting_name"
+   */
+  valueOf(): string | null;
+
+  /**
+   * Symbol for primitive conversion
+   */
+  [Symbol.toPrimitive](hint: string): string | null;
+}
+
+/**
+ * Data management namespace
+ * Provides methods to work with FSM data
+ * Supports direct field access: ctx.fsm.data.name = "John"
+ */
+export interface DataNamespace {
+  /**
+   * Set single field
+   * @example ctx.fsm.data.set("name", "John")
+   */
+  set(key: string, value: any): void;
+
+  /**
+   * Get single field
+   * @example const name = ctx.fsm.data.get<string>("name")
+   */
+  get<T = any>(key: string): T | undefined;
+
+  /**
+   * Set all data (overwrites)
+   * @example ctx.fsm.data.setAll({ name: "John", age: 25 })
+   */
+  setAll(data: Record<string, any>): void;
+
+  /**
+   * Get all data
+   * @example const data = ctx.fsm.data.getAll()
+   */
+  getAll<T = Record<string, any>>(): T;
+
+  /**
+   * Update data (merges with existing)
+   * @example ctx.fsm.data.update({ city: "NYC" })
+   */
+  update(data: Record<string, any>): void;
+
+  /**
+   * Delete single field
+   * @example ctx.fsm.data.delete("name")
+   */
+  delete(key: string): void;
+
+  /**
+   * Clear all data
+   * @example ctx.fsm.data.clear()
+   */
+  clear(): void;
+
+  /**
+   * Direct field access via index signature
+   * @example ctx.fsm.data.name = "John"
+   */
+  [key: string]: any;
+}
+
+/**
  * FSM context methods added to Grammy context
  * Synchronous API - no await needed!
  */
 export interface FSMContextMethods {
+  /**
+   * State namespace - methods for state management
+   * Supports shorthand: ctx.state = "awaiting_name"
+   * Clear with: ctx.state.clear() or ctx.state = undefined
+   * @example
+   * ctx.state.set("awaiting_name")
+   * ctx.state = "awaiting_name"  // shorthand
+   * ctx.state = undefined        // clear state
+   */
+  state: StateNamespace;
+
+  /**
+   * Data namespace - methods for data management
+   * Supports direct field access: ctx.data.name = "John"
+   * Clear with: ctx.data.clear() or ctx.data = undefined
+   * @example
+   * ctx.data.set("name", "John")
+   * ctx.data.name = "John"       // direct access
+   * ctx.data = undefined          // clear data
+   */
+  data: DataNamespace;
+
+  /**
+   * FSM namespace - global operations
+   */
   fsm: {
-    /**
-     * Current state (synchronous access)
-     * @example ctx.fsm.state = "awaiting_name"
-     */
-    state: string | null;
-
-    /**
-     * Session data (synchronous access)
-     * @example ctx.fsm.data.name = "John"
-     */
-    data: Record<string, any>;
-
-    /**
-     * Set current state
-     * @example ctx.fsm.setState("awaiting_name")
-     */
-    setState(state: string): void;
-
-    /**
-     * Get current state
-     * @example const state = ctx.fsm.getState()
-     */
-    getState(): string | null;
-
-    /**
-     * Check if state is set
-     * @example if (ctx.fsm.hasState()) { ... }
-     */
-    hasState(): boolean;
-
-    /**
-     * Set data (overwrites all data)
-     * @example ctx.fsm.setData({ name: "John", age: 25 })
-     */
-    setData(data: Record<string, any>): void;
-
-    /**
-     * Get all data
-     * @example const data = ctx.fsm.getData()
-     */
-    getData<T = Record<string, any>>(): T;
-
-    /**
-     * Update data (merges with existing)
-     * @example ctx.fsm.updateData({ city: "NYC" })
-     */
-    updateData(data: Record<string, any>): void;
-
-    /**
-     * Get single field
-     * @example const name = ctx.fsm.get<string>("name")
-     */
-    get<T = any>(key: string): T | undefined;
-
-    /**
-     * Set single field
-     * @example ctx.fsm.set("name", "John")
-     */
-    set(key: string, value: any): void;
-
-    /**
-     * Delete single field
-     * @example ctx.fsm.delete("name")
-     */
-    delete(key: string): void;
-
     /**
      * Clear everything (state and data)
      * @example ctx.fsm.clear()

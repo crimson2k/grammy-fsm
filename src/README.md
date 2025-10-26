@@ -28,15 +28,15 @@ npm install ioredis
 
 ```typescript
 import { Bot, type Context } from "grammy";
-import { createFSM, state, State, StatesGroup, type FSMFlavor } from "modules/fsm";
+import { createFSM, state, type FSMFlavor } from "modules/fsm";
 
 // 1. Extend context with FSM flavor
 type MyContext = Context & FSMFlavor;
 
-// 2. Define your states
-class RegistrationStates extends StatesGroup {
-  static awaitingName = new State("awaiting_name");
-  static awaitingAge = new State("awaiting_age");
+// 2. Define your states using enum
+enum RegistrationStates {
+  AwaitingName = "awaiting_name",
+  AwaitingAge = "awaiting_age",
 }
 
 // 3. Create bot with extended context
@@ -48,33 +48,33 @@ bot.use(createFSM({ storage: "memory" }));
 // 5. Start registration flow
 bot.command("start", async (ctx) => {
   await ctx.reply("What's your name?");
-  await ctx.fsm.setState(RegistrationStates.awaitingName);
+  ctx.state = RegistrationStates.AwaitingName;
 });
 
 // 6. Handle name input
-bot.filter(state(RegistrationStates.awaitingName)).on("message:text", async (ctx) => {
+bot.filter(state(RegistrationStates.AwaitingName)).on("message:text", async (ctx) => {
   const name = ctx.message.text;
 
-  await ctx.fsm.set("name", name);
+  ctx.data.name = name;
   await ctx.reply("How old are you?");
-  await ctx.fsm.setState(RegistrationStates.awaitingAge);
+  ctx.state = RegistrationStates.AwaitingAge;
 });
 
 // 7. Handle age input
-bot.filter(state(RegistrationStates.awaitingAge)).on("message:text", async (ctx) => {
+bot.filter(state(RegistrationStates.AwaitingAge)).on("message:text", async (ctx) => {
   const age = parseInt(ctx.message.text);
 
-  await ctx.fsm.set("age", age);
+  ctx.data.age = age;
 
-  const data = await ctx.fsm.getData();
+  const data = ctx.data.getAll();
   await ctx.reply(`Registration complete!\nName: ${data.name}\nAge: ${data.age}`);
 
-  await ctx.fsm.clear();
+  ctx.fsm.clear();
 });
 
 // 8. Cancel anytime
 bot.command("cancel", async (ctx) => {
-  await ctx.fsm.clear();
+  ctx.fsm.clear();
   await ctx.reply("Cancelled");
 });
 
@@ -136,17 +136,19 @@ bot.use(createFSM({ storage: new MyCustomStorage() }));
 
 ## Defining States
 
-### Using Classes (Recommended)
+### Using Enums (Recommended)
 
 ```typescript
-class OrderStates extends StatesGroup {
-  static choosingProduct = new State("choosing_product");
-  static choosingQuantity = new State("choosing_quantity");
-  static confirmingOrder = new State("confirming_order");
+enum OrderStates {
+  ChoosingProduct = "choosing_product",
+  ChoosingQuantity = "choosing_quantity",
+  ConfirmingOrder = "confirming_order",
 }
 
 // Usage
-await ctx.fsm.setState(OrderStates.choosingProduct);
+ctx.state.set(OrderStates.ChoosingProduct);
+// or shorthand:
+ctx.state = OrderStates.ChoosingProduct;
 ```
 
 ### Using Constants
@@ -159,51 +161,69 @@ const STATES = {
 } as const;
 
 // Usage
-await ctx.fsm.setState(STATES.MENU);
+ctx.state.set(STATES.MENU);
+// or shorthand:
+ctx.state = STATES.MENU;
 ```
 
 ## Context API
 
-Once you add the FSM plugin, `ctx.fsm` provides these methods:
+Once you add the FSM plugin, your context provides these methods:
 
 ### State Management
 
 ```typescript
-// Set current state
-await ctx.fsm.setState("state_name");
-await ctx.fsm.setState(MyStates.registration);
+// Set current state (synchronous!)
+ctx.state.set("state_name");
+ctx.state.set(MyStates.Registration);
+// Or use the shorthand:
+ctx.state = "state_name";
 
-// Get current state
-const state = await ctx.fsm.getState(); // Returns string | null
+// Get current state (synchronous!)
+const state = ctx.state.get(); // Returns string | null
 
-// Check if user has any state
-const hasState = await ctx.fsm.hasState(); // Returns boolean
+// Check if user has any state (synchronous!)
+const hasState = ctx.state.has(); // Returns boolean
+
+// Clear state only
+ctx.state.clear();
+// Or use shorthand:
+ctx.state = undefined;
+ctx.state = null;
 
 // Clear state and data
-await ctx.fsm.clear();
+ctx.fsm.clear();
 ```
 
 ### Data Management
 
 ```typescript
-// Set all data (overwrites)
-await ctx.fsm.setData({ name: "John", age: 25 });
+// Set all data (overwrites) - synchronous!
+ctx.data.setAll({ name: "John", age: 25 });
 
-// Get all data
-const data = await ctx.fsm.getData(); // Returns { name: "John", age: 25 }
+// Get all data - synchronous!
+const data = ctx.data.getAll(); // Returns { name: "John", age: 25 }
 
-// Update data (merges with existing)
-await ctx.fsm.updateData({ city: "NYC" });
+// Update data (merges with existing) - synchronous!
+ctx.data.update({ city: "NYC" });
 // Now: { name: "John", age: 25, city: "NYC" }
 
-// Set individual field
-await ctx.fsm.set("email", "john@example.com");
+// Set individual field - synchronous!
+ctx.data.set("email", "john@example.com");
+ctx.data.email = "john@example.com"; // direct access
 
-// Get individual field
-const name = await ctx.fsm.get<string>("name"); // "John"
+// Get individual field - synchronous!
+const name = ctx.data.get<string>("name"); // "John"
+const name2 = ctx.data.name; // direct access
 
 // Delete field
-await ctx.fsm.delete("age");
+ctx.data.delete("age");
+
+// Clear data only
+ctx.data.clear();
+// Or use shorthand:
+ctx.data = undefined;
+ctx.data = null;
 ```
 
 ## Middleware Filters
@@ -264,19 +284,19 @@ bot.filter(noState()).on("message", async (ctx) => {
 ### Multi-Step Form with Validation
 
 ```typescript
-class FormStates extends StatesGroup {
-  static awaitingEmail = new State("awaiting_email");
-  static awaitingPhone = new State("awaiting_phone");
-  static awaitingConfirmation = new State("awaiting_confirmation");
+enum FormStates {
+  AwaitingEmail = "awaiting_email",
+  AwaitingPhone = "awaiting_phone",
+  AwaitingConfirmation = "awaiting_confirmation",
 }
 
 bot.command("form", async (ctx) => {
   await ctx.reply("Please enter your email:");
-  await ctx.fsm.setState(FormStates.awaitingEmail);
+  ctx.state = FormStates.AwaitingEmail;
 });
 
-bot.filter(state(FormStates.awaitingEmail), async (ctx) => {
-  const email = ctx.message?.text;
+bot.filter(state(FormStates.AwaitingEmail)).on("message:text", async (ctx) => {
+  const email = ctx.message.text;
 
   // Validate email
   if (!email?.includes("@")) {
@@ -284,13 +304,13 @@ bot.filter(state(FormStates.awaitingEmail), async (ctx) => {
     return; // Stay in same state
   }
 
-  await ctx.fsm.set("email", email);
+  ctx.data.email = email;
   await ctx.reply("Please enter your phone number:");
-  await ctx.fsm.setState(FormStates.awaitingPhone);
+  ctx.state = FormStates.AwaitingPhone;
 });
 
-bot.filter(state(FormStates.awaitingPhone), async (ctx) => {
-  const phone = ctx.message?.text;
+bot.filter(state(FormStates.AwaitingPhone)).on("message:text", async (ctx) => {
+  const phone = ctx.message.text;
 
   // Validate phone
   if (!/^\+?\d{10,15}$/.test(phone || "")) {
@@ -298,26 +318,26 @@ bot.filter(state(FormStates.awaitingPhone), async (ctx) => {
     return;
   }
 
-  await ctx.fsm.set("phone", phone);
+  ctx.data.phone = phone;
 
-  const data = await ctx.fsm.getData();
+  const data = ctx.data.getAll();
   await ctx.reply(
     `Please confirm:\nEmail: ${data.email}\nPhone: ${data.phone}\n\nType 'yes' to confirm`
   );
-  await ctx.fsm.setState(FormStates.awaitingConfirmation);
+  ctx.state = FormStates.AwaitingConfirmation;
 });
 
-bot.filter(state(FormStates.awaitingConfirmation), async (ctx) => {
-  const text = ctx.message?.text?.toLowerCase();
+bot.filter(state(FormStates.AwaitingConfirmation)).on("message:text", async (ctx) => {
+  const text = ctx.message.text.toLowerCase();
 
   if (text === "yes") {
-    const data = await ctx.fsm.getData();
+    const data = ctx.data.getAll();
     // Save to database...
     await ctx.reply("Form submitted successfully!");
-    await ctx.fsm.clear();
+    ctx.fsm.clear();
   } else {
     await ctx.reply("Form cancelled");
-    await ctx.fsm.clear();
+    ctx.fsm.clear();
   }
 });
 ```
@@ -338,48 +358,48 @@ bot.use(createFSM({
 ### Shopping Cart with States
 
 ```typescript
-class ShopStates extends StatesGroup {
-  static browsing = new State("browsing");
-  static addingToCart = new State("adding_to_cart");
-  static checkout = new State("checkout");
+enum ShopStates {
+  Browsing = "browsing",
+  AddingToCart = "adding_to_cart",
+  Checkout = "checkout",
 }
 
 bot.command("shop", async (ctx) => {
   await ctx.reply("Welcome to shop!");
-  await ctx.fsm.setState(ShopStates.browsing);
-  await ctx.fsm.setData({ cart: [] });
+  ctx.state = ShopStates.Browsing;
+  ctx.data.setAll({ cart: [] });
 });
 
-bot.filter(state(ShopStates.browsing), async (ctx) => {
-  const productId = ctx.callbackQuery?.data;
+bot.filter(state(ShopStates.Browsing)).on("callback_query:data", async (ctx) => {
+  const productId = ctx.callbackQuery.data;
 
-  await ctx.fsm.setState(ShopStates.addingToCart);
-  await ctx.fsm.set("selectedProduct", productId);
+  ctx.state = ShopStates.AddingToCart;
+  ctx.data.selectedProduct = productId;
   await ctx.reply("How many do you want?");
 });
 
-bot.filter(state(ShopStates.addingToCart), async (ctx) => {
-  const quantity = parseInt(ctx.message?.text || "1");
-  const productId = await ctx.fsm.get("selectedProduct");
+bot.filter(state(ShopStates.AddingToCart)).on("message:text", async (ctx) => {
+  const quantity = parseInt(ctx.message.text || "1");
+  const productId = ctx.data.selectedProduct;
 
   // Get current cart
-  const cart = await ctx.fsm.get<any[]>("cart") || [];
+  const cart = ctx.data.get<any[]>("cart") || [];
   cart.push({ productId, quantity });
 
-  await ctx.fsm.set("cart", cart);
-  await ctx.fsm.setState(ShopStates.browsing);
+  ctx.data.cart = cart;
+  ctx.state = ShopStates.Browsing;
   await ctx.reply("Added to cart!");
 });
 
-bot.command("checkout", state(ShopStates.browsing), async (ctx) => {
-  const cart = await ctx.fsm.get("cart");
+bot.command("checkout").filter(state(ShopStates.Browsing), async (ctx) => {
+  const cart = ctx.data.cart;
 
   if (!cart || cart.length === 0) {
     await ctx.reply("Your cart is empty!");
     return;
   }
 
-  await ctx.fsm.setState(ShopStates.checkout);
+  ctx.state = ShopStates.Checkout;
   await ctx.reply("Proceeding to checkout...");
 });
 ```
@@ -408,12 +428,16 @@ interface UserRegistrationData {
 }
 
 // Get typed data
-const data = await ctx.fsm.getData<UserRegistrationData>();
-console.log(data?.name); // TypeScript knows this is a string
+const data = ctx.data.getAll<UserRegistrationData>();
+console.log(data.name); // TypeScript knows this is a string
 
 // Get typed field
-const age = await ctx.fsm.get<number>("age");
+const age = ctx.data.get<number>("age");
 console.log(age); // TypeScript knows this is number | undefined
+
+// Direct access with type assertion
+const data2 = ctx.data as unknown as UserRegistrationData;
+console.log(data2.name); // TypeScript knows this is a string
 ```
 
 ## API Reference
@@ -430,21 +454,29 @@ Creates FSM plugin for Grammy.
 - `ttl?`: Time-to-live in seconds for auto-cleanup
 - `onStateChange?`: Callback function called on state changes
 
-### Context Methods (`ctx.fsm`)
+### Context Methods
 
-**State Management:**
-- `setState(state)`: Set user's state
-- `getState()`: Get current state
-- `hasState()`: Check if user has a state
-- `clear()`: Clear state and all data
+**State Namespace (`ctx.state`):**
+- `state.set(state)`: Set user's state
+- `state.get()`: Get current state
+- `state.has()`: Check if user has a state
+- `state.clear()`: Clear state only
+- `state = "value"`: Shorthand for `state.set(value)`
+- `state = undefined`: Shorthand for `state.clear()`
 
-**Data Management:**
-- `setData(data)`: Set all data (overwrites)
-- `getData<T>()`: Get all data
-- `updateData(data)`: Update data (merges)
-- `get<T>(key)`: Get single field
-- `set(key, value)`: Set single field
-- `delete(key)`: Delete single field
+**Data Namespace (`ctx.data`):**
+- `data.setAll(data)`: Set all data (overwrites)
+- `data.getAll<T>()`: Get all data
+- `data.update(data)`: Update data (merges)
+- `data.get<T>(key)`: Get single field
+- `data.set(key, value)`: Set single field
+- `data.delete(key)`: Delete single field
+- `data.clear()`: Clear data only
+- `data = undefined`: Shorthand for `data.clear()`
+- `data.fieldName`: Direct field access (get/set)
+
+**General (`ctx.fsm`):**
+- `clear()`: Clear both state and all data
 
 ### Middleware Filters
 

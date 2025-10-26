@@ -28,13 +28,13 @@ import type { FSMFlavor } from "./types";
  */
 export function state(stateName: string) {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.fsm) {
+    if (!ctx.state) {
       throw new Error(
         "FSM plugin not initialized. Did you forget to use createFSM()?",
       );
     }
 
-    return ctx.fsm.state === stateName;
+    return ctx.state.get() === stateName;
   };
 }
 
@@ -60,13 +60,14 @@ export function state(stateName: string) {
  */
 export function states(...stateNames: string[]) {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.fsm) {
+    if (!ctx.state) {
       throw new Error(
         "FSM plugin not initialized. Did you forget to use createFSM()?",
       );
     }
 
-    return ctx.fsm.state !== null && stateNames.includes(ctx.fsm.state);
+    const currentState = ctx.state.get();
+    return currentState !== null && stateNames.includes(currentState);
   };
 }
 
@@ -85,13 +86,13 @@ export function states(...stateNames: string[]) {
  */
 export function inAnyState() {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.fsm) {
+    if (!ctx.state) {
       throw new Error(
         "FSM plugin not initialized. Did you forget to use createFSM()?",
       );
     }
 
-    return ctx.fsm.hasState();
+    return ctx.state.has();
   };
 }
 
@@ -110,12 +111,12 @@ export function inAnyState() {
  */
 export function noState() {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.fsm) {
+    if (!ctx.state) {
       throw new Error(
         "FSM plugin not initialized. Did you forget to use createFSM()?",
       );
     }
 
-    return !ctx.fsm.hasState();
+    return !ctx.state.has();
   };
 }

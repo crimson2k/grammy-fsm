@@ -46,8 +46,8 @@ export function createExampleBot(token: string) {
 
   bot.command("register", async (ctx) => {
     await ctx.reply("Welcome! What's your name?");
-    // Synchronous! No await needed
-    ctx.fsm.setState(RegistrationStates.AwaitingName);
+    // Synchronous! No await needed - using shorthand
+    ctx.state = RegistrationStates.AwaitingName;
   });
 
   bot
@@ -60,10 +60,10 @@ export function createExampleBot(token: string) {
         return;
       }
 
-      // Synchronous! No await needed
-      ctx.fsm.set("name", name);
+      // Synchronous! No await needed - using direct field access
+      ctx.data.name = name;
       await ctx.reply("Great! How old are you?");
-      ctx.fsm.setState(RegistrationStates.AwaitingAge);
+      ctx.state.set(RegistrationStates.AwaitingAge);
     });
 
   bot
@@ -77,10 +77,10 @@ export function createExampleBot(token: string) {
         return;
       }
 
-      // Synchronous! No await needed
-      ctx.fsm.set("age", age);
+      // Synchronous! No await needed - using data.set() method
+      ctx.data.set("age", age);
       await ctx.reply("Perfect! What's your email?");
-      ctx.fsm.setState(RegistrationStates.AwaitingEmail);
+      ctx.state = RegistrationStates.AwaitingEmail;
     });
 
   bot
@@ -94,10 +94,10 @@ export function createExampleBot(token: string) {
       }
 
       // Synchronous! No await needed
-      ctx.fsm.set("email", email);
+      ctx.data.email = email;
 
       // Get all data (synchronously!)
-      const data = ctx.fsm.getData<{
+      const data = ctx.data.getAll<{
         name: string;
         age: number;
         email: string;
@@ -122,7 +122,7 @@ export function createExampleBot(token: string) {
         "2. Tea - $2\n" +
         "3. Juice - $4",
     );
-    ctx.fsm.setState(OrderStates.ChoosingProduct);
+    ctx.state = OrderStates.ChoosingProduct;
   });
 
   bot
@@ -141,11 +141,11 @@ export function createExampleBot(token: string) {
         return;
       }
 
-      ctx.fsm.set("product", products[choice]);
+      ctx.data.product = products[choice];
       await ctx.reply(
         `You selected ${products[choice].name}. How many do you want?`,
       );
-      ctx.fsm.setState(OrderStates.ChoosingQuantity);
+      ctx.state = OrderStates.ChoosingQuantity;
     });
 
   bot
@@ -159,10 +159,10 @@ export function createExampleBot(token: string) {
         return;
       }
 
-      ctx.fsm.set("quantity", quantity);
+      ctx.data.quantity = quantity;
 
       // Get single field (synchronously!)
-      const product = ctx.fsm.get<{ name: string; price: number }>("product");
+      const product = ctx.data.get<{ name: string; price: number }>("product");
       const total = product ? product.price * quantity : 0;
 
       await ctx.reply(
@@ -173,7 +173,7 @@ export function createExampleBot(token: string) {
           `Type 'confirm' to place the order or 'cancel' to cancel`,
       );
 
-      ctx.fsm.setState(OrderStates.ConfirmingOrder);
+      ctx.state = OrderStates.ConfirmingOrder;
     });
 
   bot
@@ -182,7 +182,7 @@ export function createExampleBot(token: string) {
       const text = ctx.message.text.toLowerCase();
 
       if (text === "confirm") {
-        const data = ctx.fsm.getData<{
+        const data = ctx.data.getAll<{
           product: { name: string; price: number };
           quantity: number;
         }>();
@@ -206,7 +206,7 @@ export function createExampleBot(token: string) {
 
   bot.command("cancel", async (ctx) => {
     // Check if user has state (synchronously!)
-    if (ctx.fsm.hasState()) {
+    if (ctx.state.has()) {
       ctx.fsm.clear();
       await ctx.reply("Action cancelled");
     } else {
@@ -216,8 +216,8 @@ export function createExampleBot(token: string) {
 
   bot.command("status", async (ctx) => {
     // Get state and data (synchronously!)
-    const currentState = ctx.fsm.getState();
-    const data = ctx.fsm.getData();
+    const currentState = ctx.state.get();
+    const data = ctx.data.getAll();
 
     if (currentState) {
       await ctx.reply(
@@ -231,14 +231,14 @@ export function createExampleBot(token: string) {
   // Alternative syntax: direct property access
   bot.command("alt", async (ctx) => {
     // You can also access state and data directly!
-    ctx.fsm.state = RegistrationStates.AwaitingName;
-    ctx.fsm.data.name = "John";
-    ctx.fsm.data.age = 25;
+    ctx.state = RegistrationStates.AwaitingName;
+    ctx.data.name = "John";
+    ctx.data.age = 25;
 
     await ctx.reply(
-      `Set state to: ${ctx.fsm.state}\n` +
-        `Name: ${ctx.fsm.data.name}\n` +
-        `Age: ${ctx.fsm.data.age}`,
+      `Set state to: ${ctx.state.get()}\n` +
+        `Name: ${ctx.data.name}\n` +
+        `Age: ${ctx.data.age}`,
     );
   });
 
