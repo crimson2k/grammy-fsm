@@ -46,13 +46,19 @@ const bot = new Bot<MyContext>("YOUR_BOT_TOKEN");
 // 4. Initialize FSM plugin
 bot.use(createFSM({ storage: "memory" }));
 
-// 5. Start registration flow
+// 5. Cancel anytime (before starting other handlers, so that they don't block the cancellation)
+bot.command("cancel", async (ctx) => {
+  ctx.fsm.clear();
+  await ctx.reply("Cancelled");
+});
+
+// 6. Start registration flow
 bot.command("start", async (ctx) => {
   await ctx.reply("What's your name?");
   ctx.state = RegistrationStates.AwaitingName;
 });
 
-// 6. Handle name input
+// 7. Handle name input
 bot.filter(state(RegistrationStates.AwaitingName)).on("message:text", async (ctx) => {
   const name = ctx.message.text;
 
@@ -61,7 +67,7 @@ bot.filter(state(RegistrationStates.AwaitingName)).on("message:text", async (ctx
   ctx.state = RegistrationStates.AwaitingAge;
 });
 
-// 7. Handle age input
+// 8. Handle age input
 bot.filter(state(RegistrationStates.AwaitingAge)).on("message:text", async (ctx) => {
   const age = parseInt(ctx.message.text);
 
@@ -71,12 +77,6 @@ bot.filter(state(RegistrationStates.AwaitingAge)).on("message:text", async (ctx)
   await ctx.reply(`Registration complete!\nName: ${data.name}\nAge: ${data.age}`);
 
   ctx.fsm.clear();
-});
-
-// 8. Cancel anytime
-bot.command("cancel", async (ctx) => {
-  ctx.fsm.clear();
-  await ctx.reply("Cancelled");
 });
 
 bot.start();
