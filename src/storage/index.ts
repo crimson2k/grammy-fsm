@@ -1,3 +1,3 @@
 export type { FSMStorage } from "../types";
-export { MemoryStorage } from "./memory";
-export { RedisStorage } from "./redis";
+export { MemoryStorage } from "./memory.js";
+export { RedisStorage } from "./redis.js";

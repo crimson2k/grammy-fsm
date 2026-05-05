@@ -4,7 +4,7 @@ import type {
   FSMContextMethods,
   FSMSessionData,
   StateNamespace,
-} from "./types";
+} from "./types.js";
 
 /**
  * Creates state namespace with methods for state management
@@ -12,14 +12,17 @@ import type {
 function createStateNamespace(
   sessionData: FSMSessionData,
   onStateChange?: (oldState: string | null, newState: string | null) => void,
+  markModified?: () => void,
 ): StateNamespace {
   return {
     set(state: string): void {
       const oldState = sessionData.state;
-      sessionData.state = state;
-
-      if (onStateChange && oldState !== state) {
-        onStateChange(oldState, state);
+      if (oldState !== state) {
+        sessionData.state = state;
+        markModified?.();
+        if (onStateChange) {
+          onStateChange(oldState, state);
+        }
       }
     },
 
@@ -33,10 +36,12 @@ function createStateNamespace(
 
     clear(): void {
       const oldState = sessionData.state;
-      sessionData.state = null;
-
-      if (onStateChange && oldState !== null) {
-        onStateChange(oldState, null);
+      if (oldState !== null) {
+        sessionData.state = null;
+        markModified?.();
+        if (onStateChange) {
+          onStateChange(oldState, null);
+        }
       }
     },
 
@@ -70,10 +75,14 @@ function createStateNamespace(
  * Creates data namespace with methods for data management
  * Supports direct field access via Proxy
  */
-function createDataNamespace(sessionData: FSMSessionData): DataNamespace {
+function createDataNamespace(
+  sessionData: FSMSessionData,
+  markModified?: () => void,
+): DataNamespace {
   const namespace = {
     set(key: string, value: any): void {
       sessionData.data[key] = value;
+      markModified?.();
     },
 
     get<T = any>(key: string): T | undefined {
@@ -82,6 +91,7 @@ function createDataNamespace(sessionData: FSMSessionData): DataNamespace {
 
     setAll(data: Record<string, any>): void {
       sessionData.data = data;
+      markModified?.();
     },
 
     getAll<T = Record<string, any>>(): T {
@@ -90,15 +100,18 @@ function createDataNamespace(sessionData: FSMSessionData): DataNamespace {
 
     update(data: Record<string, any>): void {
       sessionData.data = { ...sessionData.data, ...data };
+      markModified?.();
     },
 
     delete(key: string): void {
       // biome-ignore lint/performance/noDelete: Required for FSM API
       delete sessionData.data[key];
+      markModified?.();
     },
 
     clear(): void {
       sessionData.data = {};
+      markModified?.();
     },
 
     // For JSON.stringify() - serialize only data, not methods
@@ -133,6 +146,7 @@ function createDataNamespace(sessionData: FSMSessionData): DataNamespace {
       }
       // Set to sessionData
       sessionData.data[prop] = value;
+      markModified?.();
       return true;
     },
 
@@ -147,6 +161,7 @@ function createDataNamespace(sessionData: FSMSessionData): DataNamespace {
       }
       // biome-ignore lint/performance/noDelete: Required for FSM API
       delete sessionData.data[prop];
+      markModified?.();
       return true;
     },
 
@@ -182,9 +197,14 @@ function createDataNamespace(sessionData: FSMSessionData): DataNamespace {
 export function createFSMContext(
   sessionData: FSMSessionData,
   onStateChange?: (oldState: string | null, newState: string | null) => void,
+  markModified?: () => void,
 ): { state: StateNamespace; data: DataNamespace; fsm: { clear(): void } } {
-  const stateNamespace = createStateNamespace(sessionData, onStateChange);
-  const dataNamespace = createDataNamespace(sessionData);
+  const stateNamespace = createStateNamespace(
+    sessionData,
+    onStateChange,
+    markModified,
+  );
+  const dataNamespace = createDataNamespace(sessionData, markModified);
 
   return {
     state: stateNamespace,
@@ -192,11 +212,15 @@ export function createFSMContext(
     fsm: {
       clear(): void {
         const oldState = sessionData.state;
-        sessionData.state = null;
-        sessionData.data = {};
+        const hadData = Object.keys(sessionData.data).length > 0;
+        if (oldState !== null || hadData) {
+          sessionData.state = null;
+          sessionData.data = {};
+          markModified?.();
 
-        if (onStateChange && oldState !== null) {
-          onStateChange(oldState, null);
+          if (onStateChange && oldState !== null) {
+            onStateChange(oldState, null);
+          }
         }
       },
     },
@@ -214,8 +238,13 @@ export function addFSMToContext<C extends Context>(
   ctx: C,
   sessionData: FSMSessionData,
   onStateChange?: (oldState: string | null, newState: string | null) => void,
+  markModified?: () => void,
 ): asserts ctx is C & FSMContextMethods {
-  const { state, data, fsm } = createFSMContext(sessionData, onStateChange);
+  const { state, data, fsm } = createFSMContext(
+    sessionData,
+    onStateChange,
+    markModified,
+  );
 
   // Add fsm namespace with clear() method
   (ctx as any).fsm = fsm;
@@ -253,3 +282,4 @@ export function addFSMToContext<C extends Context>(
     configurable: true,
   });
 }
+

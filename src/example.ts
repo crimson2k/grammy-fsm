@@ -1,250 +1,58 @@
-/**
- * Example usage of FSM module
- *
- * This file demonstrates how to use the FSM module in a Grammy bot
- * with synchronous API (no await needed for FSM operations!)
- */
-
 import { Bot, type Context } from "grammy";
 import { createFSM, state, type FSMFlavor } from "./index";
 
-// Extend context with FSMFlavor
+// 1. Extend context with FSM flavor
 type MyContext = Context & FSMFlavor;
 
-// Define states using enums (simple and clear!)
+// 2. Define your states using enum
 enum RegistrationStates {
   AwaitingName = "awaiting_name",
   AwaitingAge = "awaiting_age",
-  AwaitingEmail = "awaiting_email",
 }
 
-enum OrderStates {
-  ChoosingProduct = "choosing_product",
-  ChoosingQuantity = "choosing_quantity",
-  ConfirmingOrder = "confirming_order",
-}
+// 3. Create bot with extended context
+const bot = new Bot<MyContext>("7993140610:AAEDplCz6tsjOfaw3ozPIQu3uGzWADuw250");
 
-/**
- * Example bot setup with FSM
- */
-export function createExampleBot(token: string) {
-  const bot = new Bot<MyContext>(token);
+// 4. Initialize FSM plugin
+bot.use(createFSM({ storage: "memory" }));
 
-  // Initialize FSM with memory storage
-  bot.use(
-    createFSM({
-      storage: "memory",
-      onStateChange: (userId, oldState, newState) => {
-        console.log(
-          `User ${userId}: ${oldState ?? "none"} -> ${newState ?? "none"}`,
-        );
-      },
-    }),
-  );
+// 5. Cancel anytime (before starting other handlers, so that they don't block the cancellation)
+bot.command("cancel", async (ctx) => {
+  ctx.fsm.clear();
+  await ctx.reply("Cancelled");
+});
 
-  // ========== Registration Flow ==========
+// 6. Start registration flow
+bot.command("start", async (ctx) => {
+  await ctx.reply("What's your name?");
+  ctx.state = RegistrationStates.AwaitingName;
+});
 
-  bot.command("register", async (ctx) => {
-    await ctx.reply("Welcome! What's your name?");
-    // Synchronous! No await needed - using shorthand
-    ctx.state = RegistrationStates.AwaitingName;
+// 7. Handle name input
+bot
+  .filter(state(RegistrationStates.AwaitingName))
+  .on("message:text", async (ctx) => {
+    const name = ctx.message.text;
+
+    ctx.data.name = name;
+    await ctx.reply("How old are you?");
+    ctx.state = RegistrationStates.AwaitingAge;
   });
 
-  bot
-    .filter(state(RegistrationStates.AwaitingName))
-    .on("message:text", async (ctx) => {
-      const name = ctx.message.text;
+// 8. Handle age input
+bot
+  .filter(state(RegistrationStates.AwaitingAge))
+  .on("message:text", async (ctx) => {
+    const age = parseInt(ctx.message.text);
 
-      if (!name || name.length < 2) {
-        await ctx.reply("Please enter a valid name (at least 2 characters)");
-        return;
-      }
+    ctx.data.age = age;
 
-      // Synchronous! No await needed - using direct field access
-      ctx.data.name = name;
-      await ctx.reply("Great! How old are you?");
-      ctx.state.set(RegistrationStates.AwaitingAge);
-    });
-
-  bot
-    .filter(state(RegistrationStates.AwaitingAge))
-    .on("message:text", async (ctx) => {
-      const ageText = ctx.message.text;
-      const age = Number.parseInt(ageText || "0");
-
-      if (Number.isNaN(age) || age < 1 || age > 120) {
-        await ctx.reply("Please enter a valid age (1-120)");
-        return;
-      }
-
-      // Synchronous! No await needed - using data.set() method
-      ctx.data.set("age", age);
-      await ctx.reply("Perfect! What's your email?");
-      ctx.state = RegistrationStates.AwaitingEmail;
-    });
-
-  bot
-    .filter(state(RegistrationStates.AwaitingEmail))
-    .on("message:text", async (ctx) => {
-      const email = ctx.message.text;
-
-      if (!email || !email.includes("@")) {
-        await ctx.reply("Please enter a valid email address");
-        return;
-      }
-
-      // Synchronous! No await needed
-      ctx.data.email = email;
-
-      // Get all data (synchronously!)
-      const data = ctx.data.getAll<{
-        name: string;
-        age: number;
-        email: string;
-      }>();
-
-      await ctx.reply(
-        `Registration complete!\n\n` +
-          `Name: ${data.name}\n` +
-          `Age: ${data.age}\n` +
-          `Email: ${data.email}`,
-      );
-
-      ctx.fsm.clear();
-    });
-
-  // ========== Order Flow ==========
-
-  bot.command("order", async (ctx) => {
-    await ctx.reply(
-      "Welcome to our shop! Choose a product:\n" +
-        "1. Coffee - $3\n" +
-        "2. Tea - $2\n" +
-        "3. Juice - $4",
-    );
-    ctx.state = OrderStates.ChoosingProduct;
-  });
-
-  bot
-    .filter(state(OrderStates.ChoosingProduct))
-    .on("message:text", async (ctx) => {
-      const choice = ctx.message.text;
-
-      const products: Record<string, { name: string; price: number }> = {
-        "1": { name: "Coffee", price: 3 },
-        "2": { name: "Tea", price: 2 },
-        "3": { name: "Juice", price: 4 },
-      };
-
-      if (!choice || !products[choice]) {
-        await ctx.reply("Please choose a valid option (1, 2, or 3)");
-        return;
-      }
-
-      ctx.data.product = products[choice];
-      await ctx.reply(
-        `You selected ${products[choice].name}. How many do you want?`,
-      );
-      ctx.state = OrderStates.ChoosingQuantity;
-    });
-
-  bot
-    .filter(state(OrderStates.ChoosingQuantity))
-    .on("message:text", async (ctx) => {
-      const quantityText = ctx.message.text;
-      const quantity = Number.parseInt(quantityText || "0");
-
-      if (Number.isNaN(quantity) || quantity < 1 || quantity > 100) {
-        await ctx.reply("Please enter a valid quantity (1-100)");
-        return;
-      }
-
-      ctx.data.quantity = quantity;
-
-      // Get single field (synchronously!)
-      const product = ctx.data.get<{ name: string; price: number }>("product");
-      const total = product ? product.price * quantity : 0;
-
-      await ctx.reply(
-        `Order summary:\n` +
-          `Product: ${product?.name}\n` +
-          `Quantity: ${quantity}\n` +
-          `Total: $${total}\n\n` +
-          `Type 'confirm' to place the order or 'cancel' to cancel`,
-      );
-
-      ctx.state = OrderStates.ConfirmingOrder;
-    });
-
-  bot
-    .filter(state(OrderStates.ConfirmingOrder))
-    .on("message:text", async (ctx) => {
-      const text = ctx.message.text.toLowerCase();
-
-      if (text === "confirm") {
-        const data = ctx.data.getAll<{
-          product: { name: string; price: number };
-          quantity: number;
-        }>();
-
-        await ctx.reply(
-          `Order placed successfully!\n` +
-            `${data.quantity}x ${data.product.name}\n` +
-            `Total: $${data.product.price * data.quantity}`,
-        );
-
-        ctx.fsm.clear();
-      } else if (text === "cancel") {
-        await ctx.reply("Order cancelled");
-        ctx.fsm.clear();
-      } else {
-        await ctx.reply("Please type 'confirm' or 'cancel'");
-      }
-    });
-
-  // ========== General Commands ==========
-
-  bot.command("cancel", async (ctx) => {
-    // Check if user has state (synchronously!)
-    if (ctx.state.has()) {
-      ctx.fsm.clear();
-      await ctx.reply("Action cancelled");
-    } else {
-      await ctx.reply("Nothing to cancel");
-    }
-  });
-
-  bot.command("status", async (ctx) => {
-    // Get state and data (synchronously!)
-    const currentState = ctx.state.get();
     const data = ctx.data.getAll();
-
-    if (currentState) {
-      await ctx.reply(
-        `Current state: ${currentState}\n` + `Data: ${JSON.stringify(data, null, 2)}`,
-      );
-    } else {
-      await ctx.reply("No active state");
-    }
-  });
-
-  // Alternative syntax: direct property access
-  bot.command("alt", async (ctx) => {
-    // You can also access state and data directly!
-    ctx.state = RegistrationStates.AwaitingName;
-    ctx.data.name = "John";
-    ctx.data.age = 25;
-
     await ctx.reply(
-      `Set state to: ${ctx.state.get()}\n` +
-        `Name: ${ctx.data.name}\n` +
-        `Age: ${ctx.data.age}`,
+      `Registration complete!\nName: ${data.name}\nAge: ${data.age}`,
     );
+
+    ctx.fsm.clear();
   });
 
-  return bot;
-}
-
-// Example usage:
-// const bot = createExampleBot("YOUR_BOT_TOKEN");
-// bot.start();
+bot.start();

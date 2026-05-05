@@ -12,7 +12,7 @@
     "rootDir": "./src",
 
     // Module settings for Node.js compatibility
-    "module": "ESNext",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "target": "ES2020",
 

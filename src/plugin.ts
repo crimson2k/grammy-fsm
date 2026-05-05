@@ -1,8 +1,8 @@
 import type { Context, MiddlewareFn, MiddlewareObj, NextFunction } from "grammy";
-import { addFSMToContext } from "./context";
+import { addFSMToContext } from "./context.js";
 import { MemoryStorage } from "./storage/memory";
 import { RedisStorage } from "./storage/redis";
-import type { FSMOptions, FSMSessionData, FSMStorage } from "./types";
+import type { FSMOptions, FSMSessionData, FSMStorage } from "./types.js";
 
 /**
  * Creates FSM plugin for Grammy bot
@@ -80,19 +80,21 @@ export function createFSM<C extends Context>(
     // Add FSM methods to context (synchronous API)
     addFSMToContext(ctx, sessionData, onStateChange);
 
-    // Execute handlers (they work with sessionData synchronously)
-    await next();
-
-    // SAVE: Save session data to storage AFTER handlers
-    if (sessionData.state !== null) {
-      // State is set - save both state and data
-      await storage.setState(userId, sessionData.state);
-      await storage.setData(userId, sessionData.data);
-    } else if (state !== null) {
-      // State was cleared - clear storage
-      await storage.clear(userId);
+    try {
+      // Execute handlers (they work with sessionData synchronously)
+      await next();
+    } finally {
+      // SAVE: Save session data to storage AFTER handlers
+      if (sessionData.state !== null) {
+        // State is set - save both state and data
+        await storage.setState(userId, sessionData.state);
+        await storage.setData(userId, sessionData.data);
+      } else if (state !== null) {
+        // State was cleared - clear storage
+        await storage.clear(userId);
+      }
+      // If state was null and still null - do nothing (no unnecessary writes)
     }
-    // If state was null and still null - do nothing (no unnecessary writes)
   };
 }
 

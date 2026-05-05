@@ -37,7 +37,8 @@ export class MemoryStorage implements FSMStorage {
 
   async getData(userId: number): Promise<Record<string, any> | null> {
     const data = this.storage.get(userId)?.data;
-    return data && Object.keys(data).length > 0 ? data : null;
+    if (!data || Object.keys(data).length === 0) return null;
+    return structuredClone(data);
   }
 
   async updateData(userId: number, data: Record<string, any>): Promise<void> {

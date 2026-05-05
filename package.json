@@ -22,7 +22,6 @@
     "url": "https://github.com/crimson2k/grammy-fsm/issues"
   },
   "homepage": "https://github.com/crimson2k/grammy-fsm#readme",
-  "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -43,6 +42,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
+    "prepare": "tsc -p tsconfig.build.json",
     "prepublishOnly": "bun run clean && bun run build"
   },
   "engines": {

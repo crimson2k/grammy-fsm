@@ -160,7 +160,7 @@ export interface FSMContextMethods {
    * ctx.state = "awaiting_name"  // shorthand
    * ctx.state = undefined        // clear state
    */
-  state: StateNamespace;
+  state: StateNamespace & any;
 
   /**
    * Data namespace - methods for data management
@@ -171,7 +171,8 @@ export interface FSMContextMethods {
    * ctx.data.name = "John"       // direct access
    * ctx.data = undefined          // clear data
    */
-  data: DataNamespace;
+  get data(): DataNamespace;
+  set data(value: null | undefined);
 
   /**
    * FSM namespace - global operations

@@ -37,11 +37,11 @@
  */
 
 // Middleware filters
-export { inAnyState, noState, state, states } from "./middleware";
+export { inAnyState, noState, state, states } from "./middleware.js";
 // Core plugin
-export { createFSM } from "./plugin";
+export { createFSM } from "./plugin.js";
 // Storage implementations
-export { MemoryStorage, RedisStorage } from "./storage";
+export { MemoryStorage, RedisStorage } from "./storage/index.js";
 // Types and interfaces
 export type {
   FSMContextMethods,
@@ -50,4 +50,4 @@ export type {
   FSMSessionData,
   FSMStorage,
   StateFilterFn,
-} from "./types";
+} from "./types.js";

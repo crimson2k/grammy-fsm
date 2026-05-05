@@ -1,5 +1,5 @@
 import type { Context } from "grammy";
-import type { FSMFlavor } from "./types";
+import type { FSMFlavor } from "./types.js";
 
 /**
  * Filter function that checks if user is in a specific state
@@ -28,12 +28,7 @@ import type { FSMFlavor } from "./types";
  */
 export function state(stateName: string) {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.state) {
-      throw new Error(
-        "FSM plugin not initialized. Did you forget to use createFSM()?",
-      );
-    }
-
+    if (!ctx.state) return false;
     return ctx.state.get() === stateName;
   };
 }
@@ -60,12 +55,7 @@ export function state(stateName: string) {
  */
 export function states(...stateNames: string[]) {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.state) {
-      throw new Error(
-        "FSM plugin not initialized. Did you forget to use createFSM()?",
-      );
-    }
-
+    if (!ctx.state) return false;
     const currentState = ctx.state.get();
     return currentState !== null && stateNames.includes(currentState);
   };
@@ -86,12 +76,7 @@ export function states(...stateNames: string[]) {
  */
 export function inAnyState() {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.state) {
-      throw new Error(
-        "FSM plugin not initialized. Did you forget to use createFSM()?",
-      );
-    }
-
+    if (!ctx.state) return false;
     return ctx.state.has();
   };
 }
@@ -111,12 +96,7 @@ export function inAnyState() {
  */
 export function noState() {
   return (ctx: Context & FSMFlavor): boolean => {
-    if (!ctx.state) {
-      throw new Error(
-        "FSM plugin not initialized. Did you forget to use createFSM()?",
-      );
-    }
-
+    if (!ctx.state) return false;
     return !ctx.state.has();
   };
 }

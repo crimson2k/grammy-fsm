@@ -5,6 +5,7 @@ interface RedisClient {
   set(key: string, value: string): Promise<any>;
   setex(key: string, seconds: number, value: string): Promise<any>;
   del(...keys: string[]): Promise<number>;
+  expire?(key: string, seconds: number): Promise<number>;
 }
 
 /**
@@ -61,7 +62,13 @@ export class RedisStorage implements FSMStorage {
 
   async getState(userId: number): Promise<string | null> {
     const key = this.getStateKey(userId);
-    return await this.redis.get(key);
+    const value = await this.redis.get(key);
+
+    if (value && this.ttl && typeof this.redis.expire === "function") {
+      await this.redis.expire(key, this.ttl);
+    }
+
+    return value;
   }
 
   async setData(userId: number, data: Record<string, any>): Promise<void> {
@@ -81,6 +88,10 @@ export class RedisStorage implements FSMStorage {
 
     if (!data) {
       return null;
+    }
+
+    if (this.ttl && typeof this.redis.expire === "function") {
+      await this.redis.expire(key, this.ttl);
     }
 
     try {
